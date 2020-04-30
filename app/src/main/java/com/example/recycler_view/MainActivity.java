@@ -4,6 +4,8 @@ import android.os.Bundle;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -14,12 +16,21 @@ import androidx.recyclerview.widget.RecyclerView;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
+
 public class MainActivity extends AppCompatActivity {
 
+
+    private static final String BASE_URL = "https://pokeapi.co/";
 
     private RecyclerView recyclerView;
     private ListAdapter mAdapter;
@@ -30,6 +41,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        showList();
+        makeApiCall();
+
+    }
+
+    private void showList() {
         recyclerView = (RecyclerView) findViewById(R.id.my_recycler_view);
         // use this setting to
         // improve performance if you know that changes
@@ -46,25 +63,40 @@ public class MainActivity extends AppCompatActivity {
         // define an adapter
         mAdapter = new ListAdapter(input);
         recyclerView.setAdapter(mAdapter);
-
-        // put this after your definition of your recyclerview
-// input in your data mode in this example a java.util.List, adjust if necessary
-// adapter is your adapter
-        ItemTouchHelper.SimpleCallback simpleItemTouchCallback =
-                new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
-                    @Override
-                    public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder
-                            target) {
-                        return false;
-                    }
-                    @Override
-                    public void onSwiped(RecyclerView.ViewHolder viewHolder, int swipeDir) {
-                        input.remove(viewHolder.getAdapterPosition());
-                        mAdapter.notifyItemRemoved(viewHolder.getAdapterPosition());
-                    }
-                };
-        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(simpleItemTouchCallback);
-        itemTouchHelper.attachToRecyclerView(recyclerView);
     }
+
+    protected void makeApiCall(){
+        Gson gson = new GsonBuilder()
+                .setLenient()
+                .create();
+
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create(gson))
+                .build();
+
+        PokeAPI pokeApi = retrofit.create(PokeAPI.class);
+
+        Call<RestPokemonResponse> call = pokeApi.getPokemonResponse();
+        call.enqueue(new Callback<RestPokemonResponse>() {
+            @Override
+            public void onResponse(Call<RestPokemonResponse> call, Response<RestPokemonResponse> response) {
+                if (response.isSuccessful() && response.body() != null){
+                    List<Pokemon> pokemonList = response.body().getResults();
+                    Toast.makeText(MainActivity.this, "API Success", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<RestPokemonResponse> call, Throwable t) {
+                showError();
+            }
+        });
+    }
+
+    private void showError() {
+        Toast.makeText(getApplicationContext(), "API Error", Toast.LENGTH_SHORT).show();
+    }
+
 
 }
